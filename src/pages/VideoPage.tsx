@@ -1,69 +1,94 @@
-import React, { useRef, useState } from "react";
-import { useVideoChapters } from "../hooks/useVideoChapters";
+// VideoPage.tsx
+import React, { useState } from "react";
 import VideoPlayer from "../components/VideoPlayer/VideoPlayer";
 import ChapterSidebar from "../components/ChapterSidebar/ChapterSidebar";
+import type { Chapter } from "../types/video";
 
 const VideoPage: React.FC = () => {
-  const videoId = "sample-video";
-  const { data, isLoading } = useVideoChapters(videoId);
   const [currentTime, setCurrentTime] = useState(0);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  if (isLoading || !data) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-400 text-lg">Loading video...</p>
-        </div>
-      </div>
-    );
-  }
+  // Define your chapters here with start times in seconds
+  const chapters: Chapter[] = [
+    {
+      id: "1",
+      title: "Introduction to the Course",
+      start: 0,
+      end: 10,
+    },
+    {
+      id: "2",
+      title: "Setting Up Your Environment",
+      start: 10,
+      end: 60,
+    },
+    {
+      id: "3",
+      title: "Understanding the Basics",
+      start: 60,
+      end: 80,
+    },
+    {
+      id: "4",
+      title: "Advanced Techniques",
+      start: 80,
+      end: 120,
+    },
+    {
+      id: "5",
+      title: "Real World Examples",
+      start: 120,
+      end: 167,
+    },
+  ];
+
+  // Place your video in: public/videos/sample.mp4
+  // Or:  (then import it)
+  const videoUrl = "src/assets/videos/sample-video.mp4"; // This looks for the file in public/videos/
 
   const handleSeek = (time: number) => {
-    const video = document.querySelector("video");
-    if (video) {
-      video.currentTime = time;
-      video.play();
-    }
+    setCurrentTime(time);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Modern Minimal Header */}
-      <header className="fixed top-0 left-0 right-0 z-30 backdrop-blur-xl bg-slate-950/70 border-b border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M6.5 4.5L15 10l-8.5 5.5V4.5z" />
+    <div className="min-h-screen bg-[#0f0f0f]">
+      {/* YouTube-style Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#0f0f0f] border-b border-gray-800">
+        <div className="px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <button className="p-2 hover:bg-gray-800 rounded-full transition-colors">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-white text-xl font-semibold">Mediant Labs</span>
             </div>
-            <h1 className="text-xl font-semibold text-white tracking-tight">VideoStream</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-400">
-              {Math.floor(data.duration / 60)}:{String(Math.floor(data.duration % 60)).padStart(2, '0')} min
-            </span>
           </div>
         </div>
       </header>
 
-      <ChapterSidebar
-        chapters={data.chapters}
-        currentTime={currentTime}
-        onSeek={handleSeek}
-      />
-
-      {/* Main Content */}
-      <div className="pt-24 pb-12 px-6 flex items-center justify-center min-h-screen">
-        <div className="max-w-6xl w-full">
-          <div className="rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+      {/* Main Content - YouTube Layout */}
+      <div className="pt-16 flex flex-col lg:flex-row gap-6 p-6 max-w-[1920px] mx-auto">
+        {/* Left Side - Video Player */}
+        <div className="flex-1">
+          <div className="rounded-xl overflow-hidden bg-black">
             <VideoPlayer
-              manifestUrl={data.manifestUrl}
+              videoUrl={videoUrl}
+              chapters={chapters}
+              currentTime={currentTime}
               onTimeUpdate={(t) => setCurrentTime(t)}
+              onSeek={(t) => setCurrentTime(t)}
             />
           </div>
+        </div>
+
+        {/* Right Side - Chapters List */}
+        <div className="lg:w-[400px] xl:w-[450px]">
+          <ChapterSidebar
+            chapters={chapters}
+            currentTime={currentTime}
+            onSeek={handleSeek}
+          />
         </div>
       </div>
     </div>
