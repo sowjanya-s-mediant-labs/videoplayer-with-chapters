@@ -2,6 +2,7 @@
 
 // VideoPlayer.tsx
 import React, { useRef, useState, useEffect } from "react";
+import Hls from "hls.js";
 import type { Chapter } from "../../types/video";
 
 interface VideoPlayerProps {
@@ -29,6 +30,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [previewTime, setPreviewTime] = useState<number | null>(null);
   const [previewPosition, setPreviewPosition] = useState({ x: 0, y: 0 });
   const controlsTimeoutRef = useRef<number | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const draggingRef = useRef(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -40,6 +44,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
+      // Ensure we honor any pending external seek after (re)loading source
+      if (!Number.isNaN(currentTime) && currentTime > 0) {
+        try {
+          video.currentTime = currentTime;
+        } catch {}
+      }
     };
 
     video.addEventListener("timeupdate", handleTimeUpdate);
@@ -49,7 +59,62 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
     };
-  }, [onTimeUpdate]);
+  }, [onTimeUpdate, currentTime]);
+
+  // Load video source (supports MP4 and HLS)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Cleanup previous hls instance if any
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (!videoUrl) {
+      video.removeAttribute("src");
+      video.load();
+      return;
+    }
+
+    const isHls = /\.m3u8($|\?)/i.test(videoUrl);
+    if (isHls) {
+      if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        // Safari can play HLS natively
+        video.src = videoUrl;
+      } else if (Hls.isSupported()) {
+        const hls = new Hls({ autoStartLoad: true });
+        hlsRef.current = hls;
+        hls.loadSource(videoUrl);
+        hls.attachMedia(video);
+        // Once manifest is parsed, ensure we seek to currentTime if needed
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (!Number.isNaN(currentTime) && currentTime > 0) {
+            try {
+              video.currentTime = currentTime;
+            } catch {}
+          }
+        });
+      } else {
+        // Fallback: set src anyway (some browsers/plugins may handle it)
+        video.src = videoUrl;
+      }
+    } else {
+      // MP4 or other directly supported format
+      video.src = videoUrl;
+    }
+
+    // Reset play state on source change
+    setIsPlaying(false);
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [videoUrl]);
 
   // Sync external seek with video
   useEffect(() => {
@@ -69,13 +134,42 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!progressBarRef.current || !videoRef.current) return;
+  const seekFromClientX = (clientX: number) => {
+    if (!progressBarRef.current || !videoRef.current || !duration) return;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    const newTime = pos * duration;
+    const clampedX = Math.max(rect.left, Math.min(clientX, rect.right));
+    const pos = (clampedX - rect.left) / rect.width;
+    const newTime = Math.max(0, Math.min(duration, pos * duration));
     videoRef.current.currentTime = newTime;
     onSeek(newTime);
+    setPreviewTime(newTime);
+    setPreviewPosition({ x: clampedX - rect.left, y: rect.top });
+  };
+
+  const handleProgressPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!progressBarRef.current) return;
+    e.preventDefault();
+    setIsDragging(true);
+    draggingRef.current = true;
+    seekFromClientX(e.clientX);
+
+    const onMove = (ev: PointerEvent) => {
+      if (!draggingRef.current) return;
+      seekFromClientX(ev.clientX);
+    };
+    const cleanup = () => {
+      setIsDragging(false);
+      draggingRef.current = false;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      setPreviewTime(null);
+    };
+    const onUp = (ev: PointerEvent) => cleanup();
+    const onCancel = (ev: PointerEvent) => cleanup();
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+    window.addEventListener('pointercancel', onCancel, { once: true });
   };
 
   const handleProgressHover = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -140,7 +234,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <video
         ref={videoRef}
         className="w-full aspect-video"
-        src={videoUrl}
         onClick={togglePlay}
       />
 
@@ -177,8 +270,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         {/* Progress Bar with Chapter Markers */}
         <div 
           ref={progressBarRef}
-          className="relative h-1 bg-gray-700 cursor-pointer hover:h-1.5 transition-all group/progress mx-3 mb-2"
-          onClick={handleProgressClick}
+          className={`relative ${isDragging ? 'h-1.5' : 'h-1'} bg-gray-700 cursor-pointer hover:h-1.5 transition-all group/progress mx-3 mb-2`}
+          style={{ touchAction: 'none' }}
+          onPointerDown={handleProgressPointerDown}
           onMouseMove={handleProgressHover}
           onMouseLeave={handleProgressLeave}
         >
@@ -198,9 +292,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* Progress Fill */}
           <div 
             className="absolute top-0 left-0 h-full bg-red-600 z-20"
-            style={{ width: `${(currentTime / duration) * 100}%` }}
+            style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
           >
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-red-600 rounded-full opacity-0 group-hover/progress:opacity-100 transition-opacity shadow-lg" />
+            <div className={`absolute right-0 top-1/2 -translate-y-1/2 ${isDragging ? 'w-3.5 h-3.5' : 'w-3 h-3'} bg-red-600 rounded-full opacity-0 group-hover/progress:opacity-100 transition-[opacity,transform] shadow-lg`} />
           </div>
         </div>
 

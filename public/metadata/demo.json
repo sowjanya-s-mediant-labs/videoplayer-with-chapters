@@ -1,0 +1,12 @@
+{
+  "videoId": "demo",
+  "duration": 167,
+  "manifestUrl": "/videos/sample-video.mp4",
+  "chapters": [
+    { "id": "1", "title": "Introduction", "start": 0 },
+    { "id": "2", "title": "Setup & Requirements", "start": 20 },
+    { "id": "3", "title": "Core Concepts", "start": 60 },
+    { "id": "4", "title": "Demo Walkthrough", "start": 100 },
+    { "id": "5", "title": "Wrap Up", "start": 147 }
+  ]
+}

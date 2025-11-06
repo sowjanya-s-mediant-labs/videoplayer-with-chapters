@@ -11,6 +11,18 @@ interface ChapterSidebarProps {
 }
 
 const ChapterSidebar: React.FC<ChapterSidebarProps> = ({ chapters, currentTime, onSeek }) => {
+  // Determine active chapter by comparing current time with this start and next chapter's start
+  const activeIndex = React.useMemo(() => {
+    if (!chapters || chapters.length === 0) return -1;
+    for (let i = 0; i < chapters.length; i++) {
+      const start = Number(chapters[i]?.start) || 0;
+      const nextStart = Number(chapters[i + 1]?.start);
+      const next = Number.isFinite(nextStart) ? (nextStart as number) : Number.POSITIVE_INFINITY;
+      if (currentTime >= start && currentTime < next) return i;
+    }
+    return -1;
+  }, [chapters, currentTime]);
+
   return (
     <div className="bg-[#0f0f0f] rounded-xl">
       {/* Header */}
@@ -26,7 +38,7 @@ const ChapterSidebar: React.FC<ChapterSidebarProps> = ({ chapters, currentTime, 
       {/* Chapters List */}
       <div className="overflow-y-auto max-h-[calc(100vh-200px)] custom-scrollbar">
         {chapters.map((ch, index) => {
-          const isActive = currentTime >= ch.start && (!ch.end || currentTime < ch.end);
+          const isActive = index === activeIndex;
           
           return (
             <button
@@ -38,20 +50,21 @@ const ChapterSidebar: React.FC<ChapterSidebarProps> = ({ chapters, currentTime, 
             >
               {/* Thumbnail */}
               <div className="relative flex-shrink-0">
-                <div className="w-[168px] h-[94px] bg-[#272727] rounded-lg overflow-hidden">
+                {/* Thumbnail reduced to ~75% of original (168x94 -> 126x71) */}
+                <div className="w-[126px] h-[71px] bg-[#272727] rounded-md overflow-hidden">
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                    <svg className="w-12 h-12 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-10 h-10 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z"/>
                     </svg>
                   </div>
                 </div>
                 {/* Duration Badge */}
-                <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs font-semibold px-1.5 py-0.5 rounded">
+                <div className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-semibold px-1 py-0.5 rounded">
                   {formatTime(ch.start)}
                 </div>
                 {/* Active Indicator */}
                 {isActive && (
-                  <div className="absolute inset-0 border-2 border-red-600 rounded-lg pointer-events-none" />
+                  <div className="absolute inset-0 border-2 border-red-600 rounded-md pointer-events-none" />
                 )}
               </div>
 

@@ -3,47 +3,16 @@ import React, { useState } from "react";
 import VideoPlayer from "../components/VideoPlayer/VideoPlayer";
 import ChapterSidebar from "../components/ChapterSidebar/ChapterSidebar";
 import type { Chapter } from "../types/video";
+import { useVideoChapters } from "../hooks/useVideoChapters";
 
 const VideoPage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
 
-  // Define your chapters here with start times in seconds
-  const chapters: Chapter[] = [
-    {
-      id: "1",
-      title: "Introduction to the Course",
-      start: 0,
-      end: 10,
-    },
-    {
-      id: "2",
-      title: "Setting Up Your Environment",
-      start: 10,
-      end: 60,
-    },
-    {
-      id: "3",
-      title: "Understanding the Basics",
-      start: 60,
-      end: 80,
-    },
-    {
-      id: "4",
-      title: "Advanced Techniques",
-      start: 80,
-      end: 120,
-    },
-    {
-      id: "5",
-      title: "Real World Examples",
-      start: 120,
-      end: 167,
-    },
-  ];
-
-  // Place your video in: public/videos/sample.mp4
-  // Or:  (then import it)
-  const videoUrl = "src/assets/videos/sample-video.mp4"; // This looks for the file in public/videos/
+  // Load metadata (chapters + video URL) at runtime
+  // Replace 'demo' with your real videoId and ensure public/metadata/<videoId>.json exists
+  const { data, isLoading, isError } = useVideoChapters("demo");
+  const chapters: Chapter[] = data?.chapters ?? [];
+  const videoUrl = data?.manifestUrl ?? ""; // can be an MP4 or an HLS .m3u8
 
   const handleSeek = (time: number) => {
     setCurrentTime(time);
@@ -72,13 +41,20 @@ const VideoPage: React.FC = () => {
         {/* Left Side - Video Player */}
         <div className="flex-1">
           <div className="rounded-xl overflow-hidden bg-black">
-            <VideoPlayer
-              videoUrl={videoUrl}
-              chapters={chapters}
-              currentTime={currentTime}
-              onTimeUpdate={(t) => setCurrentTime(t)}
-              onSeek={(t) => setCurrentTime(t)}
-            />
+            {/* Show player once we have a URL, otherwise a simple placeholder */}
+            {videoUrl ? (
+              <VideoPlayer
+                videoUrl={videoUrl}
+                chapters={chapters}
+                currentTime={currentTime}
+                onTimeUpdate={(t) => setCurrentTime(t)}
+                onSeek={(t) => setCurrentTime(t)}
+              />
+            ) : (
+              <div className="w-full aspect-video bg-black text-gray-400 flex items-center justify-center">
+                {isLoading ? "Loading video..." : isError ? "Failed to load video" : "No video URL"}
+              </div>
+            )}
           </div>
         </div>
 
