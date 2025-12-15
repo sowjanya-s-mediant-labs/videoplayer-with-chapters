@@ -3,11 +3,13 @@
 // VideoPlayer.tsx
 import React, { useRef, useState, useEffect } from "react";
 import Hls from "hls.js";
-import type { Chapter } from "../../types/video";
+import type { Chapter, Topic } from "../../types/video";
+import { formatTime as formatMs } from "../../utils/time";
 
 interface VideoPlayerProps {
   videoUrl: string;
   chapters: Chapter[];
+  topics?: Topic[];
   currentTime: number;
   onTimeUpdate: (time: number) => void;
   onSeek: (time: number) => void;
@@ -16,6 +18,7 @@ interface VideoPlayerProps {
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ 
   videoUrl, 
   chapters, 
+  topics,
   currentTime,
   onTimeUpdate, 
   onSeek 
@@ -29,6 +32,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [showControls, setShowControls] = useState(true);
   const [previewTime, setPreviewTime] = useState<number | null>(null);
   const [previewPosition, setPreviewPosition] = useState({ x: 0, y: 0 });
+  const [isChapterPanelOpen, setIsChapterPanelOpen] = useState(false);
   const controlsTimeoutRef = useRef<number | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -135,13 +139,29 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   const seekFromClientX = (clientX: number) => {
-    if (!progressBarRef.current || !videoRef.current || !duration) return;
+    if (!progressBarRef.current || !videoRef.current) return;
     const rect = progressBarRef.current.getBoundingClientRect();
+    const width = rect?.width ?? 0;
+    if (!(width > 0)) return; // avoid NaN when width is 0 in some prod layouts
     const clampedX = Math.max(rect.left, Math.min(clientX, rect.right));
-    const pos = (clampedX - rect.left) / rect.width;
-    const newTime = Math.max(0, Math.min(duration, pos * duration));
-    videoRef.current.currentTime = newTime;
-    onSeek(newTime);
+    const posRaw = (clampedX - rect.left) / width;
+    const pos = Number.isFinite(posRaw) ? Math.max(0, Math.min(1, posRaw)) : 0;
+    const baseDuration = Number.isFinite(duration) && duration > 0
+      ? duration
+      : Number(videoRef.current.duration) || 0;
+    if (!(baseDuration > 0)) return;
+    const newTimeRaw = pos * baseDuration;
+    const newTime = Number.isFinite(newTimeRaw) ? Math.max(0, Math.min(baseDuration, newTimeRaw)) : 0;
+    // Seek and ensure playback resumes from the new position
+    try {
+      videoRef.current.currentTime = newTime;
+    } catch {}
+    if (Number.isFinite(newTime)) onSeek(newTime);
+    if (videoRef.current.paused) {
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {
+        // Ignore autoplay restriction errors
+      });
+    }
     setPreviewTime(newTime);
     setPreviewPosition({ x: clampedX - rect.left, y: rect.top });
   };
@@ -149,6 +169,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleProgressPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!progressBarRef.current) return;
     e.preventDefault();
+    try { (e.currentTarget as any).setPointerCapture?.(e.pointerId); } catch {}
     setIsDragging(true);
     draggingRef.current = true;
     seekFromClientX(e.clientX);
@@ -165,8 +186,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       window.removeEventListener('pointercancel', onCancel);
       setPreviewTime(null);
     };
-    const onUp = (ev: PointerEvent) => cleanup();
-    const onCancel = (ev: PointerEvent) => cleanup();
+    const onUp = (_ev: PointerEvent) => cleanup();
+    const onCancel = (_ev: PointerEvent) => cleanup();
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp, { once: true });
     window.addEventListener('pointercancel', onCancel, { once: true });
@@ -175,8 +196,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleProgressHover = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressBarRef.current) return;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    const time = pos * duration;
+    const width = rect?.width ?? 0;
+    if (!(width > 0)) return;
+    const posRaw = (e.clientX - rect.left) / width;
+    const pos = Number.isFinite(posRaw) ? Math.max(0, Math.min(1, posRaw)) : 0;
+    const baseDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
+    const time = pos * baseDuration;
+    if (!Number.isFinite(time)) return;
     setPreviewTime(time);
     setPreviewPosition({ x: e.clientX - rect.left, y: rect.top });
   };
@@ -204,11 +230,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setIsFullscreen(!isFullscreen);
   };
 
-  const formatTime = (time: number) => {
-    const mins = Math.floor(time / 60);
-    const secs = Math.floor(time % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  // Keep isFullscreen in sync with real fullscreen state
+  useEffect(() => {
+    const onFsChange = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+      if (!fs) setIsChapterPanelOpen(false);
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  // Use utils formatter for display; internal logic stays in seconds
 
   const handleMouseMove = () => {
     setShowControls(true);
@@ -216,13 +249,39 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       clearTimeout(controlsTimeoutRef.current);
     }
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
+      if (isPlaying && !isChapterPanelOpen) setShowControls(false);
     }, 3000);
   };
 
   // Get current chapter for preview
   const getCurrentChapter = (time: number) => {
-    return chapters.find(ch => time >= ch.start && (!ch.end || time < ch.end));
+    if (!Number.isFinite(time)) return undefined;
+    const tMs = (Number(time) || 0) * 1000;
+    for (let i = 0; i < chapters.length; i++) {
+      const start = Number(chapters[i]?.start) || 0;
+      const nextStart = Number(chapters[i + 1]?.start);
+      const next = Number.isFinite(nextStart) ? (nextStart as number) : Number.POSITIVE_INFINITY;
+      if (tMs >= start && tMs < next) return chapters[i];
+    }
+    return undefined;
+  };
+
+  const handlePreviewThumbError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const img = e.currentTarget;
+    const step = Number((img as any).dataset.fallbackStep || "0");
+    const base = img.src.replace(/\.(jpg|jpeg|png|webp)(\?.*)?$/i, "");
+    if (step === 0) {
+      (img as any).dataset.fallbackStep = "1";
+      img.src = `${base}.png`;
+      return;
+    }
+    if (step === 1) {
+      (img as any).dataset.fallbackStep = "2";
+      img.src = `${base}.webp`;
+      return;
+    }
+    // Hide if all fail
+    (img as any).style.display = "none";
   };
 
   return (
@@ -243,15 +302,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           className="absolute bottom-20 pointer-events-none z-50"
           style={{ left: `${previewPosition.x}px`, transform: 'translateX(-50%)' }}
         >
-          <div className="bg-black rounded-lg overflow-hidden shadow-2xl border border-gray-700">
-            <div className="w-[160px] h-[90px] bg-gray-800 flex items-center justify-center">
-              <svg className="w-8 h-8 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
+          <div className="bg-black rounded-lg overflow-hidden shadow-2xl border border-gray-700 w-[160px]">
+            <div className="w-[160px] h-[90px] bg-gray-800 flex items-center justify-center overflow-hidden">
+              {getCurrentChapter(previewTime)?.thumbnail ? (
+                <img
+                  src={getCurrentChapter(previewTime)!.thumbnail as string}
+                  alt={getCurrentChapter(previewTime)!.title}
+                  className="w-full h-full object-cover"
+                  data-fallback-step="0"
+                  onError={handlePreviewThumbError}
+                />
+              ) : (
+                <svg className="w-8 h-8 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              )}
             </div>
-            <div className="px-2 py-1 bg-black">
+            <div className="px-2 py-1 bg-black w-[160px]">
               <div className="text-white text-xs font-semibold text-center">
-                {formatTime(previewTime)}
+                {formatMs((previewTime ?? 0) * 1000)}
               </div>
               {getCurrentChapter(previewTime) && (
                 <div className="text-gray-400 text-[10px] text-center mt-0.5 truncate">
@@ -270,7 +339,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         {/* Progress Bar with Chapter Markers */}
         <div 
           ref={progressBarRef}
-          className={`relative ${isDragging ? 'h-1.5' : 'h-1'} bg-gray-700 cursor-pointer hover:h-1.5 transition-all group/progress mx-3 mb-2`}
+          className={`relative w-full ${isDragging ? 'h-1.5' : 'h-1'} bg-gray-700 cursor-pointer hover:h-1.5 transition-all group/progress mx-3 mb-2`}
           style={{ touchAction: 'none' }}
           onPointerDown={handleProgressPointerDown}
           onMouseMove={handleProgressHover}
@@ -279,7 +348,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* Chapter Markers (gaps) */}
           {chapters.map((chapter, index) => {
             if (index === 0) return null; // Skip first chapter
-            const position = (chapter.start / duration) * 100;
+            const position = ((Number(chapter.start) || 0) / 1000 / (duration || 1)) * 100;
             return (
               <div
                 key={chapter.id}
@@ -292,11 +361,26 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {/* Progress Fill */}
           <div 
             className="absolute top-0 left-0 h-full bg-red-600 z-20"
-            style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+            style={{ width: `${(Number.isFinite(duration) && duration > 0) ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0}%` }}
           >
             <div className={`absolute right-0 top-1/2 -translate-y-1/2 ${isDragging ? 'w-3.5 h-3.5' : 'w-3 h-3'} bg-red-600 rounded-full opacity-0 group-hover/progress:opacity-100 transition-[opacity,transform] shadow-lg`} />
           </div>
         </div>
+        {/* Current Chapter pill (fullscreen only) */}
+        {isFullscreen && (
+          <div className="px-3 pb-2 flex">
+            <button
+              type="button"
+              onClick={() => setIsChapterPanelOpen(v => !v)}
+              className="pointer-events-auto inline-flex items-center gap-2 max-w-[60vw] bg-black/70 text-white rounded-full px-3 py-1 text-xs shadow hover:bg-black/80"
+            >
+              <span className="truncate">
+                {getCurrentChapter(currentTime)?.title || 'Current chapter'}
+              </span>
+              <span className={`transition-transform ${isChapterPanelOpen ? 'rotate-90' : ''}`}>&gt;</span>
+            </button>
+          </div>
+        )}
 
         {/* Control Buttons */}
         <div className="flex items-center justify-between px-3 pb-2">
@@ -324,7 +408,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               )}
             </button>
             <span className="text-white text-sm font-medium">
-              {formatTime(currentTime)} / {formatTime(duration)}
+              {formatMs(currentTime * 1000)} / {formatMs(duration * 1000)}
             </span>
           </div>
           <button onClick={toggleFullscreen} className="text-white hover:text-red-600 transition-colors">
@@ -334,6 +418,101 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Right slide-in chapter panel (fullscreen only) */}
+      {isFullscreen && (
+        <div
+          className="pointer-events-auto absolute top-0 right-0 bottom-0 z-50 w-[360px] max-w-[45vw] bg-black/90 border-l border-gray-700 text-white transition-transform duration-300 flex flex-col"
+          style={{ transform: isChapterPanelOpen ? 'translateX(0)' : 'translateX(100%)' }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" />
+              </svg>
+              Chapters
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsChapterPanelOpen(false)}
+              className="p-1 rounded hover:bg-white/10"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 19L19 6M6 6l13 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2">
+            {topics && topics.length > 0 ? (
+              <div>
+                {topics.map((t) => (
+                  <div key={t.id} className="mb-1">
+                    <div className="px-2 py-1 text-sm font-semibold text-gray-200">{t.title}</div>
+                    {(t.subchapters || []).map((sc) => {
+                      const start = Number(sc.start) || 0;
+                      const nextIdx = chapters.findIndex(c => c.start > start);
+                      const nextStart = nextIdx >= 0 ? chapters[nextIdx].start : Number.POSITIVE_INFINITY;
+                      const curMs = (Number(currentTime) || 0) * 1000;
+                      const active = curMs >= start && curMs < nextStart;
+                      return (
+                        <button
+                          key={sc.id}
+                          onClick={() => onSeek(start / 1000)}
+                          className={`w-full p-2 rounded flex gap-3 items-center text-left hover:bg-white/10 ${active ? 'bg-white/10' : ''}`}
+                        >
+                          <div className="w-[84px] h-[48px] bg-gray-800 rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
+                            {sc.thumbnail ? (
+                              <img src={sc.thumbnail} alt={sc.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <svg className="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className={`text-sm font-medium truncate ${active ? 'text-white' : 'text-gray-200'}`}>{sc.title}</div>
+                            <div className="text-[11px] text-gray-400">{formatMs(start)}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              chapters.map((ch, index) => {
+                const start = Number(ch.start) || 0;
+                const next = Number(chapters[index + 1]?.start);
+                const nextStart = Number.isFinite(next) ? (next as number) : Number.POSITIVE_INFINITY;
+                const curMs = (Number(currentTime) || 0) * 1000;
+                const active = curMs >= start && curMs < nextStart;
+                return (
+                  <button
+                    key={ch.id}
+                    onClick={() => onSeek(start / 1000)}
+                    className={`w-full p-2 rounded flex gap-3 items-center text-left hover:bg-white/10 ${active ? 'bg-white/10' : ''}`}
+                  >
+                    <div className="w-[84px] h-[48px] bg-gray-800 rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
+                      {ch.thumbnail ? (
+                        <img src={ch.thumbnail} alt={ch.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <svg className="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-sm font-medium truncate ${active ? 'text-white' : 'text-gray-200'}`}>{ch.title}</div>
+                      <div className="text-[11px] text-gray-400">{formatMs(start)}</div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

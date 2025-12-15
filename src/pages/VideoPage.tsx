@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import VideoPlayer from "../components/VideoPlayer/VideoPlayer";
 import ChapterSidebar from "../components/ChapterSidebar/ChapterSidebar";
-import type { Chapter } from "../types/video";
+import type { Chapter, Topic } from "../types/video";
 import { useVideoChapters } from "../hooks/useVideoChapters";
 
 const VideoPage: React.FC = () => {
@@ -11,7 +11,32 @@ const VideoPage: React.FC = () => {
   // Load metadata (chapters + video URL) at runtime
   // Replace 'demo' with your real videoId and ensure public/metadata/<videoId>.json exists
   const { data, isLoading, isError } = useVideoChapters("demo");
-  const chapters: Chapter[] = data?.chapters ?? [];
+  const topicsFromMeta: Topic[] | undefined = data?.topics;
+  const baseChapters: Chapter[] = data?.chapters ?? [];
+  // Derive two topics dynamically from existing chapters if topics are not provided
+  const derivedTopics: Topic[] | undefined = (!topicsFromMeta || topicsFromMeta.length === 0) && baseChapters.length > 0
+    ? (() => {
+        const mid = Math.ceil(baseChapters.length / 2);
+        const first = baseChapters.slice(0, mid);
+        const second = baseChapters.slice(mid);
+        const toSub = (chs: Chapter[]) => chs.map((c) => ({ id: c.id, title: c.title, start: c.start, end: c.end, thumbnail: c.thumbnail }));
+        const topics: Topic[] = [];
+        if (first.length) topics.push({ id: "part-1", title: "Part 1", subchapters: toSub(first) });
+        if (second.length) topics.push({ id: "part-2", title: "Part 2", subchapters: toSub(second) });
+        return topics;
+      })()
+    : undefined;
+
+  const topics: Topic[] | undefined = (topicsFromMeta && topicsFromMeta.length > 0) ? topicsFromMeta : derivedTopics;
+  const chapters: Chapter[] = topics && topics.length
+    ? topics.flatMap((t) => (t.subchapters || []).map((sc) => ({
+        id: sc.id,
+        title: sc.title,
+        start: sc.start,
+        end: sc.end,
+        thumbnail: sc.thumbnail,
+      } as Chapter)))
+    : baseChapters;
   const videoUrl = data?.manifestUrl ?? ""; // can be an MP4 or an HLS .m3u8
 
   const handleSeek = (time: number) => {
@@ -19,18 +44,13 @@ const VideoPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f]">
+    <div className="min-h-screen bg-white">
       {/* YouTube-style Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#0f0f0f] border-b border-gray-800">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
         <div className="px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <button className="p-2 hover:bg-gray-800 rounded-full transition-colors">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
             <div className="flex items-center gap-2">
-              <span className="text-white text-xl font-semibold">Mediant Labs</span>
+              <span className="text-gray-900 text-xl font-semibold">{data?.title ?? "Video Player"}</span>
             </div>
           </div>
         </div>
@@ -46,12 +66,13 @@ const VideoPage: React.FC = () => {
               <VideoPlayer
                 videoUrl={videoUrl}
                 chapters={chapters}
+                topics={topics}
                 currentTime={currentTime}
                 onTimeUpdate={(t) => setCurrentTime(t)}
                 onSeek={(t) => setCurrentTime(t)}
               />
             ) : (
-              <div className="w-full aspect-video bg-black text-gray-400 flex items-center justify-center">
+              <div className="w-full aspect-video bg-black text-gray-300 flex items-center justify-center">
                 {isLoading ? "Loading video..." : isError ? "Failed to load video" : "No video URL"}
               </div>
             )}
@@ -62,6 +83,7 @@ const VideoPage: React.FC = () => {
         <div className="lg:w-[400px] xl:w-[450px]">
           <ChapterSidebar
             chapters={chapters}
+            topics={topics}
             currentTime={currentTime}
             onSeek={handleSeek}
           />
