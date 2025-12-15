@@ -1,1 +1,72 @@
 @import "tailwindcss";
+
+/* GE Vernova Color Variables from GLBstyles.css */
+:root {
+  --EVERGREEN: #005E60;
+  --URGENCY-GREEN: #C8FF08;
+  --DAY: #FFFFFF;
+  --NIGHT: #212121;
+  --GRAY1: #FAFAFA;
+  --GRAY2: #E3E3E3;
+  --GRAY3: #CCCCCC;
+  --GRAY4: #696969;
+  --GRAY5: #484848;
+  --SKY: #59C3C9;
+  --DARK-SKY: #439297;
+  --FOREST: #75CA64;
+  --DARK_FOREST: #58984B;
+  --EARTH: #BFA682;
+  --DARK-EARTH: #8F7D62;
+  --ALERT1: #EC642B;
+  --ALERT2: #F19F39;
+  --ALERT3: #F5C147;
+  --EVERGREEN-TINT1: #439297;
+  --EVERGREEN-TINT2: #96BDBD;
+  --EVERGREEN-TINT3: #C7DBDB;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Futura, Arial, sans-serif;
+}
+
+/* Volume Slider Styling */
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--EVERGREEN);
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--EVERGREEN);
+  cursor: pointer;
+  border-radius: 50%;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Video Player Button Hover Effects */
+.btn-hover-evergreen {
+  transition: color 0.3s ease;
+}
+
+.btn-hover-evergreen:hover {
+  color: var(--URGENCY-GREEN) !important;
+}
+
+/* Chapter Icon Color */
+.chapter-icon-evergreen {
+  color: var(--EVERGREEN);
+}
+
+/* Chapter Sidebar Hover Effects */
+.chapter-hover:hover {
+  background-color: rgba(200, 255, 8, 0.1) !important;
+}

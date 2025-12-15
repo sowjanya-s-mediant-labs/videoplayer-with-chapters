@@ -80,13 +80,15 @@ const VideoPage: React.FC = () => {
         </div>
 
         {/* Right Side - Chapters List */}
-        <div className="lg:w-[400px] xl:w-[450px]">
-          <ChapterSidebar
-            chapters={chapters}
-            topics={topics}
-            currentTime={currentTime}
-            onSeek={handleSeek}
-          />
+        <div className="w-full lg:w-[400px] xl:w-[450px] lg:sticky lg:top-20">
+          <div className="lg:h-[calc((100vw-3rem-400px-1.5rem)*9/16)] xl:h-[calc((100vw-3rem-450px-1.5rem)*9/16)]">
+            <ChapterSidebar
+              chapters={chapters}
+              topics={topics}
+              currentTime={currentTime}
+              onSeek={handleSeek}
+            />
+          </div>
         </div>
       </div>
     </div>

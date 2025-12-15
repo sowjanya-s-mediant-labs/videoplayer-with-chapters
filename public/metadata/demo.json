@@ -1,12 +1,62 @@
 {
-  "videoId": "demo",
-  "duration": 167,
-  "manifestUrl": "/videos/sample-video.mp4",
-  "chapters": [
-    { "id": "1", "title": "Introduction", "start": 0 },
-    { "id": "2", "title": "Setup & Requirements", "start": 20 },
-    { "id": "3", "title": "Core Concepts", "start": 60 },
-    { "id": "4", "title": "Demo Walkthrough", "start": 100 },
-    { "id": "5", "title": "Wrap Up", "start": 147 }
+  "videoId": "ESC",
+  "title": "Expansion Sleeve Coupling",
+  "duration": 167000,
+  "manifestUrl": "./videos/Expansion_Sleeve_Coupling_GE-Vernova.mp4",
+  "topics": [
+    {
+      "id": "part-1",
+      "title": "Removal",
+      "subchapters": [
+        { "id": "1", "title": "Overview of coupling and bolting arrangement", "start": 0 },
+        { "id": "2", "title": "Cross section of Rotor Couplings with the Coupling Bolt Installed", "start": 3921 },
+        { "id": "3", "title": "Tension Bolt Installation at one of bolt positions", "start": 14973 },
+        { "id": "4", "title": "Carrier and Support Rings Installation", "start": 25484 },
+        { "id": "5", "title": "Hydraulic Tensioner Installation", "start": 46630 },
+        { "id": "6", "title": "Countersunk Nut Loosening", "start": 58141 },
+        { "id": "7", "title": "Hydraulic Tensioner, Carrier Ring, Support Ring, and Tension Bolt Removal", "start": 78662 },
+        { "id": "8", "title": "Cone Oil Connection Assembly Installation", "start": 91133 },
+        { "id": "9", "title": "Expansion Sleeve Separation", "start": 102853 },
+        { "id": "10", "title": "Cone Oil Connection Assembly Removal", "start": 113405 },
+        { "id": "11", "title": "Countersunk Nuts, Coupling Bolt, and Expansion Sleeve Removal", "start": 116408 }
+      ]
+    },
+    {
+      "id": "part-2",
+      "title": "Installation",
+      "subchapters": [
+        { "id": "12", "title": "Slotted Sleeve and the Coupling Bolt Installation", "start": 136345 },
+        { "id": "13", "title": "Tension Bolt Installation", "start": 150150 },
+        { "id": "14", "title": "Spacer and Support Rings Installation", "start": 156156 },
+        { "id": "15", "title": "Hydraulic Tensioner Installation", "start": 171880 },
+        { "id": "16", "title": "Bolt Hole Alignment by Stretching the Bolt", "start": 178887 },
+        { "id": "17", "title": "Hydraulic Tensioner, Support Ring, Spacer Ring, and Tension Bolt Removal", "start": 196697 },
+        { "id": "18", "title": "Countersunk Nut Installation for the Bolt with Slotted Sleeve", "start": 208125 },
+        { "id": "19", "title": "Slotted Sleeve and Coupling Bolt Installation at the Opposite Bolt", "start": 217176 },
+        { "id": "20", "title": "Expansion Sleeve and Coupling Bolt Installation", "start": 234151 },
+        { "id": "21", "title": "Tension Bolt, Spacer Ring, and Support Ring Installation", "start": 247664 },
+        { "id": "22", "title": "Hydraulic Tensioner Installation", "start": 261136 },
+        { "id": "23", "title": "Expansion Sleeve Radial Tensioning", "start": 269895 },
+        { "id": "24", "title": "Hydraulic Tensioner, Spacer Ring, Support Ring, and Tension Bolt Removal", "start": 282616 },
+        { "id": "25", "title": "Countersunk Nuts Installation", "start": 301134 },
+        { "id": "26", "title": "Tension Bolt, Spacer Ring and Support Ring Installation", "start": 309142 },
+        { "id": "27", "title": "Hydraulic Tensioner Installation", "start": 323031 },
+        { "id": "28", "title": "Countersunk Nut Tightening", "start": 329121 },
+        { "id": "29", "title": "Hydraulic Tensioner, Spacer Ring, Support Rings, and Tension Bolt Removal", "start": 343635 },
+        { "id": "30", "title": "Installation of Bolts at the Remaining Bolt Holes", "start": 365199 },
+        { "id": "31", "title": "Removing the Countersunk Nuts, Coupling, Expansion Sleeve and Coupling Bolt Installation", "start": 375125 },
+        { "id": "32", "title": "Tension Bolt, Spacer Ring, and Support Ring Installation", "start": 392142 },
+        { "id": "33", "title": "Hydraulic Tensioner Installation", "start": 402402 },
+        { "id": "34", "title": "Expansion Sleeve Radial Tensioning", "start": 413872 },
+        { "id": "35", "title": "Hydraulic Tensioner, Spacer Ring, Support Ring, and Tension Bolt Removal", "start": 422631 },
+        { "id": "36", "title": "Countersunk Nuts Installation", "start": 432641 },
+        { "id": "37", "title": "Tension Bolt, Carrier Ring and Support Ring Installation", "start": 449658 },
+        { "id": "38", "title": "Hydraulic Tensioner Installation", "start": 456874 },
+        { "id": "39", "title": "Countersunk Nut Tightening", "start": 470387 },
+        { "id": "40", "title": "Hydraulic Tensioner, Spacer Ring, Support Ring, and Tension Bolt Removal", "start": 477394 },
+        { "id": "41", "title": "Coupling Bolt Installation at the Opposite Bolt", "start": 493869 },
+        { "id": "42", "title": "Countersunk Nuts Installation", "start": 508510 }
+      ]
+    }
   ]
 }

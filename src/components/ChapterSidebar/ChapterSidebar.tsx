@@ -70,10 +70,10 @@ const handleThumbError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   };
   // console.log("ch/", chapters);
   return (
-    <div className="bg-white rounded-xl border border-gray-200">
+    <div className="rounded-xl border flex flex-col" style={{ backgroundColor: 'var(--GRAY5)', borderColor: 'var(--GRAY4)', maxHeight: '600px', height: '100%' }}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-gray-900 text-lg font-semibold flex items-center gap-2">
+      <div className="p-4 border-b flex-shrink-0" style={{ borderColor: 'var(--GRAY4)' }}>
+        <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--DAY)' }}>
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" />
           </svg>
@@ -82,19 +82,19 @@ const handleThumbError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
       </div>
 
       {/* Chapters List (group by topics with per-topic accordions if provided) */}
-      <div className="overflow-y-auto max-h-[calc(100vh-200px)] custom-scrollbar">
+      <div className="overflow-y-auto flex-1 custom-scrollbar">
         {topics && topics.length > 0 ? (
           topics.map((t) => {
             const isOpen = openTopicIds.has(t.id);
             return (
-              <div key={t.id} className="border-b border-gray-100">
+              <div key={t.id} className="border-b" style={{ borderColor: 'var(--GRAY4)' }}>
                 <button
-                  className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-50"
+                  className="w-full px-4 py-2 flex items-center justify-between chapter-hover"
                   onClick={() => toggleTopic(t.id)}
                   aria-expanded={isOpen}
                 >
-                  <span className="text-sm font-semibold text-gray-900 text-left truncate">{t.title}</span>
-                  <span className={`text-gray-600 transition-transform ${isOpen ? 'rotate-90' : ''}`}>&gt;</span>
+                  <span className="text-sm font-semibold text-left truncate" style={{ color: 'var(--DAY)' }}>{t.title}</span>
+                  <span className="transition-transform" style={{ color: 'var(--GRAY3)' }}>{isOpen ? '▼' : '▶'}</span>
                 </button>
                 {isOpen && (
                   <div>
@@ -105,20 +105,21 @@ const handleThumbError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                         <button
                           key={sc.id}
                           onClick={() => onSeek((Number(sc.start) || 0) / 1000)}
-                          className={`w-full px-4 py-2 flex gap-3 hover:bg-gray-100 ${isActive ? 'bg-gray-100' : ''}`}
+                          className={`w-full px-4 py-2 flex gap-3 ${isActive ? '' : 'chapter-hover'}`}
+                          style={isActive ? { backgroundColor: 'rgba(236, 100, 43, 0.2)' } : {}}
                         >
-                          <div className="w-[84px] h-[48px] bg-gray-200 rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          <div className="w-[84px] h-[48px] bg-gray-700 rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
                             {sc.thumbnail ? (
                               <img src={sc.thumbnail} alt={sc.title} className="w-full h-full object-cover" onError={(e)=>handleThumbError(e as any)} />
                             ) : (
-                              <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--GRAY3)' }}>
                                 <path d="M8 5v14l11-7z" />
                               </svg>
                             )}
                           </div>
                           <div className="min-w-0 text-left">
-                            <div className={`text-sm font-medium truncate ${isActive ? 'text-red-600' : 'text-gray-900'}`}>{sc.title}</div>
-                            <div className="text-xs text-gray-500">{formatTime(Number(sc.start) || 0)}</div>
+                            <div className={`text-sm font-medium truncate`} style={{ color: isActive ? 'var(--ALERT1)' : 'var(--DAY)' }}>{sc.title}</div>
+                            <div className="text-xs" style={{ color: 'var(--GRAY3)' }}>{formatTime(Number(sc.start) || 0)}</div>
                           </div>
                         </button>
                       );
@@ -135,15 +136,16 @@ const handleThumbError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
               <button
                 key={ch.id}
                 onClick={() => onSeek((Number(ch.start) || 0) / 1000)}
-                className={`w-full p-3 flex gap-3 hover:bg-gray-100 transition-colors ${isActive ? 'bg-gray-100' : ''}`}
+                className={`w-full p-3 flex gap-3 transition-colors ${isActive ? '' : 'chapter-hover'}`}
+                style={isActive ? { backgroundColor: 'rgba(236, 100, 43, 0.2)' } : {}}
               >
                 <div className="relative flex-shrink-0">
-                  <div className="w-[126px] h-[71px] bg-gray-200 rounded-md overflow-hidden">
+                  <div className="w-[126px] h-[71px] bg-gray-700 rounded-md overflow-hidden">
                     {ch.thumbnail ? (
                       <img src={ch.thumbnail} alt={ch.title} className="w-full h-full object-cover" data-fallback-step="0" onError={handleThumbError} />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                        <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                      <div className="w-full h-full flex items-center justify-center bg-gray-700">
+                        <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--GRAY3)' }}>
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       </div>
@@ -152,11 +154,11 @@ const handleThumbError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                   <div className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-semibold px-1 py-0.5 rounded">
                     {formatTime(Number(ch.start) || 0)}
                   </div>
-                  {isActive && (<div className="absolute inset-0 border-2 border-red-600 rounded-md pointer-events-none" />)}
+                  {isActive && (<div className="absolute inset-0 border-2 rounded-md pointer-events-none" style={{ borderColor: 'var(--ALERT1)' }} />)}
                 </div>
                 <div className="flex-1 text-left min-w-0">
-                  <h3 className={`text-sm font-medium line-clamp-2 mb-1 ${isActive ? 'text-red-600' : 'text-gray-900'}`}>{ch.title}</h3>
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <h3 className={`text-sm font-medium line-clamp-2 mb-1`} style={{ color: isActive ? 'var(--ALERT1)' : 'var(--DAY)' }}>{ch.title}</h3>
+                  <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--GRAY3)' }}>
                     <span>{formatTime(Number(ch.start) || 0)}</span>
                     {ch.end && (<><span>•</span><span>{formatTime((Number(ch.end) || 0) - (Number(ch.start) || 0))}</span></>)}
                   </div>
@@ -172,14 +174,14 @@ const handleThumbError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
           width: 8px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f5f5f5;
+          background: var(--GRAY5);
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #d1d5db;
+          background: var(--GRAY4);
           border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #9ca3af;
+          background: var(--GRAY3);
         }
       `}</style>
     </div>

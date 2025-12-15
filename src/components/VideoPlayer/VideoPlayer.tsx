@@ -37,6 +37,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const hlsRef = useRef<Hls | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const draggingRef = useRef(false);
+  const [volume, setVolume] = useState(1);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -218,6 +220,65 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    if (videoRef.current) {
+      videoRef.current.volume = newVolume;
+      if (newVolume === 0) {
+        setIsMuted(true);
+        videoRef.current.muted = true;
+      } else if (isMuted) {
+        setIsMuted(false);
+        videoRef.current.muted = false;
+      }
+    }
+  };
+
+  const goToNextChapter = () => {
+    if (!chapters || chapters.length === 0) return;
+    const currentMs = (currentTime || 0) * 1000;
+    const nextChapter = chapters.find(ch => Number(ch.start) > currentMs);
+    if (nextChapter && videoRef.current) {
+      const seekTime = Number(nextChapter.start) / 1000;
+      videoRef.current.currentTime = seekTime;
+      onSeek(seekTime);
+    }
+  };
+
+  const goToPreviousChapter = () => {
+    if (!chapters || chapters.length === 0) return;
+    const currentMs = (currentTime || 0) * 1000;
+
+    // Find current chapter
+    let currentChapterIndex = -1;
+    for (let i = 0; i < chapters.length; i++) {
+      const start = Number(chapters[i]?.start) || 0;
+      const nextStart = Number(chapters[i + 1]?.start);
+      const next = Number.isFinite(nextStart) ? nextStart : Number.POSITIVE_INFINITY;
+      if (currentMs >= start && currentMs < next) {
+        currentChapterIndex = i;
+        break;
+      }
+    }
+
+    if (videoRef.current) {
+      // If more than 3 seconds into current chapter, go to start of current chapter
+      const currentChapterStart = Number(chapters[currentChapterIndex]?.start) || 0;
+      if (currentMs - currentChapterStart > 3000) {
+        const seekTime = currentChapterStart / 1000;
+        videoRef.current.currentTime = seekTime;
+        onSeek(seekTime);
+      } else if (currentChapterIndex > 0) {
+        // Otherwise go to previous chapter
+        const prevChapterStart = Number(chapters[currentChapterIndex - 1]?.start) || 0;
+        const seekTime = prevChapterStart / 1000;
+        videoRef.current.currentTime = seekTime;
+        onSeek(seekTime);
+      }
+    }
+  };
+
   const toggleFullscreen = () => {
     const container = videoRef.current?.parentElement;
     if (!container) return;
@@ -285,11 +346,31 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   return (
-    <div 
+    <div
       className="relative w-full bg-black group"
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
+      <style>{`
+        .slider::-webkit-slider-thumb {
+          appearance: none;
+          width: 12px;
+          height: 12px;
+          background: white;
+          cursor: pointer;
+          border-radius: 50%;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .slider::-moz-range-thumb {
+          width: 12px;
+          height: 12px;
+          background: white;
+          cursor: pointer;
+          border-radius: 50%;
+          border: none;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+      `}</style>
       <video
         ref={videoRef}
         className="w-full aspect-video"
@@ -337,7 +418,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         showControls ? 'opacity-100' : 'opacity-0'
       }`}>
         {/* Progress Bar with Chapter Markers */}
-        <div 
+        <div
           ref={progressBarRef}
           className={`relative w-full ${isDragging ? 'h-1.5' : 'h-1'} bg-gray-700 cursor-pointer hover:h-1.5 transition-all group/progress mx-3 mb-2`}
           style={{ touchAction: 'none' }}
@@ -357,14 +438,44 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               />
             );
           })}
-          
+
           {/* Progress Fill */}
-          <div 
+          <div
             className="absolute top-0 left-0 h-full bg-red-600 z-20"
             style={{ width: `${(Number.isFinite(duration) && duration > 0) ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0}%` }}
           >
             <div className={`absolute right-0 top-1/2 -translate-y-1/2 ${isDragging ? 'w-3.5 h-3.5' : 'w-3 h-3'} bg-red-600 rounded-full opacity-0 group-hover/progress:opacity-100 transition-[opacity,transform] shadow-lg`} />
           </div>
+
+          {/* Chapter Position Indicators on Progress Bar */}
+          {chapters.map((chapter, index) => {
+            const chapterStart = (Number(chapter.start) || 0) / 1000;
+            const nextChapterStart = chapters[index + 1] ? (Number(chapters[index + 1].start) || 0) / 1000 : duration;
+            const isActive = currentTime >= chapterStart && currentTime < nextChapterStart;
+
+            if (!isActive) return null;
+
+            const position = ((Number(chapter.start) || 0) / 1000 / (duration || 1)) * 100;
+
+            // Get first word of chapter title
+            const titleWords = chapter.title.split(' ');
+            const firstWord = titleWords[0];
+
+            return (
+              <div
+                key={`indicator-${chapter.id}`}
+                className="absolute -top-8 z-30 pointer-events-none"
+                style={{ left: `${position}%` }}
+              >
+                <div className="flex items-center gap-2 px-2 py-1 bg-black/70 rounded text-white text-xs whitespace-nowrap">
+                  <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/>
+                  </svg>
+                  <span className="font-medium">Chapter: {firstWord}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
         {/* Current Chapter pill (fullscreen only) */}
         {isFullscreen && (
@@ -382,6 +493,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           </div>
         )}
 
+        {/* Current Chapter Text Display */}
+        <div className="px-3 pb-1">
+          {getCurrentChapter(currentTime) && (() => {
+            const currentChapter = getCurrentChapter(currentTime);
+            const titleWords = currentChapter?.title.split(' ') || [];
+            const firstWord = titleWords[0] || '';
+            const fullTitle = currentChapter?.title || '';
+
+            return (
+              <div className="flex items-center gap-2 text-white text-sm">
+                <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/>
+                </svg>
+                <span className="font-medium">
+                  Chapter: {firstWord} - ({fullTitle})
+                </span>
+              </div>
+            );
+          })()}
+        </div>
+
         {/* Control Buttons */}
         <div className="flex items-center justify-between px-3 pb-2">
           <div className="flex items-center gap-3">
@@ -396,17 +528,68 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </svg>
               )}
             </button>
-            <button onClick={toggleMute} className="text-white hover:text-red-600 transition-colors">
-              {isMuted ? (
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
-                </svg>
-              )}
+
+            {/* Previous Chapter Button */}
+            <button
+              onClick={goToPreviousChapter}
+              className="text-white hover:text-red-600 transition-colors"
+              title="Previous chapter"
+            >
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/>
+              </svg>
             </button>
+
+            {/* Next Chapter Button */}
+            <button
+              onClick={goToNextChapter}
+              className="text-white hover:text-red-600 transition-colors"
+              title="Next chapter"
+            >
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M16 18h2V6h-2v12zM6 18l8.5-6L6 6v12z"/>
+              </svg>
+            </button>
+
+            {/* Volume Control Group */}
+            <div
+              className="flex items-center gap-2 group/volume"
+              onMouseEnter={() => setShowVolumeSlider(true)}
+              onMouseLeave={() => setShowVolumeSlider(false)}
+            >
+              <button onClick={toggleMute} className="text-white hover:text-red-600 transition-colors">
+                {isMuted || volume === 0 ? (
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                  </svg>
+                ) : volume < 0.5 ? (
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M7 9v6h4l5 5V4l-5 5H7z"/>
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                  </svg>
+                )}
+              </button>
+
+              {/* Volume Slider */}
+              <div className={`transition-all duration-200 overflow-hidden ${showVolumeSlider ? 'w-20 opacity-100' : 'w-0 opacity-0'}`}>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, #ef4444 0%, #ef4444 ${volume * 100}%, #4b5563 ${volume * 100}%, #4b5563 100%)`
+                  }}
+                />
+              </div>
+            </div>
+
             <span className="text-white text-sm font-medium">
               {formatMs(currentTime * 1000)} / {formatMs(duration * 1000)}
             </span>
